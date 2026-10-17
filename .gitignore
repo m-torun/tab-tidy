@@ -1,0 +1,14 @@
+# Build output
+build/
+
+# Tab Tidy keeps your settings and run logs in
+# ~/Library/Application Support/Tab Tidy, never here. Don't commit copies.
+/rules.md
+last-prompt.md
+last-response.json
+last-closed.json
+
+# macOS and editor files
+.DS_Store
+.vscode/
+.claude/settings.local.json

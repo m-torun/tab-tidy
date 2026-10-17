@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tab Tidy</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --line: #e2e2de;
+    --accent: #0b63ce;
+    --accent-text: #ffffff;
+    --tint: #eef4fc;
+    --danger: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151517;
+      --surface: #1f1f22;
+      --text: #f1f1f2;
+      --muted: #9b9ba1;
+      --line: #313136;
+      --accent: #5a9eff;
+      --accent-text: #0b1526;
+      --tint: #1c2633;
+      --danger: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 16px 140px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .card-head .count { color: var(--muted); font-weight: normal; }
+  .row {
+    display: grid;
+    grid-template-columns: auto 3.2em minmax(0, 1fr);
+    gap: 0 10px;
+    align-items: start;
+    padding: 9px 16px;
+    border-top: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .card-head + .row, details > .row:first-of-type { border-top: 0; }
+  .row:hover { background: var(--tint); }
+  .row input, .card-head input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
+  .num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .title { overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .reason { color: var(--text); }
+  details > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 16px;
+    font-weight: 600;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸ "; color: var(--muted); }
+  details[open] > summary::before { content: "▾ "; }
+  details[open] > summary { border-bottom: 1px solid var(--line); }
+  details .hint { color: var(--muted); font-weight: normal; }
+  .center { text-align: center; padding: 56px 16px; }
+  .spinner {
+    width: 28px; height: 28px; margin: 0 auto 16px;
+    border: 3px solid var(--line); border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: var(--danger); white-space: pre-wrap; text-align: left; overflow-wrap: anywhere; }
+  .actions { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
+  footer {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+  .bar { max-width: 820px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .bar .text { flex: 1 1 240px; }
+  .bar .note { color: var(--muted); font-size: 13px; }
+  button {
+    font: inherit; font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .fine { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tab Tidy</h1>
+  <p class="lead" id="lead"></p>
+  <div id="view"></div>
+</main>
+<footer id="footer" hidden>
+  <div class="bar">
+    <div class="text">
+      <div id="bar-summary"></div>
+      <div class="note" id="bar-note"></div>
+    </div>
+    <button id="cancel">Cancel</button>
+    <button id="apply" class="primary"></button>
+  </div>
+</footer>
+<script>
+"use strict";
+
+const GROUPS = [
+  ["duplicate", "Duplicates"],
+  ["reopenable", "Easy to reopen"],
+  ["login", "Sign-in pages"],
+  ["redirect", "Redirects and jump pages"],
+  ["empty", "Blank and error pages"],
+  ["done", "Finished flows"],
+];
+
+let state = null;
+let shown = null;
+let clock = null;
+
+const $ = (id) => document.getElementById(id);
+
+function el(tag, props, ...children) {
+  const node = document.createElement(tag);
+  Object.assign(node, props || {});
+  for (const child of children) {
+    if (child != null) node.append(child);
+  }
+  return node;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function place(url) {
+  try {
+    const u = new URL(url);
+    return u.host || u.protocol.replace(":", "");
+  } catch {
+    return url;
+  }
+}
+
+async function call(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    cache: "no-store",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) throw new Error(`${path}: ${response.status}`);
+  return response.json();
+}
+
+async function poll() {
+  try {
+    state = await call("GET", "api/state");
+  } catch {
+    // The app quit or the page is from an earlier launch.
+    state = { phase: "gone" };
+  }
+  render();
+  if (state.phase === "thinking" || state.phase === "applying") setTimeout(poll, 1000);
+}
+
+function render() {
+  if (state.phase === shown) return;
+  shown = state.phase;
+  clearInterval(clock);
+  $("footer").hidden = state.phase !== "ready";
+  const view = $("view");
+  view.replaceChildren();
+
+  switch (state.phase) {
+    case "thinking": return renderThinking(view);
+    case "ready": return renderPlan(view);
+    case "applying":
+      $("lead").textContent = "";
+      view.append(el("div", { className: "card center" },
+        el("div", { className: "spinner" }),
+        el("div", { textContent: "Closing tabs and gathering the rest into one window…" })));
+      return;
+    case "failed":
+      $("lead").textContent = "Something went wrong.";
+      view.append(el("div", { className: "card center" },
+        el("div", { className: "error", textContent: state.error || "Unknown error" }),
+        el("div", { className: "actions" },
+          el("button", { textContent: "Cancel", onclick: cancel }),
+          el("button", { className: "primary", textContent: "Try again", onclick: retry }))));
+      return;
+    default:
+      $("lead").textContent = "Nothing is in progress. Click Tab Tidy in the menu bar to start a tidy.";
+  }
+}
+
+function renderThinking(view) {
+  $("lead").textContent = "";
+  const elapsed = el("span");
+  const tick = () => {
+    const s = Math.max(0, Math.round((Date.now() - state.startedAt) / 1000));
+    elapsed.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  tick();
+  clock = setInterval(tick, 1000);
+  view.append(el("div", { className: "card center" },
+    el("div", { className: "spinner" }),
+    el("div", { textContent: `Claude is going through ${plural(state.tabs.length, "tab")} in ${plural(state.windows, "window")}.` }),
+    el("div", { className: "fine" }, "Nothing is closed until you approve. ", elapsed),
+    el("div", { className: "actions" }, el("button", { textContent: "Cancel", onclick: cancel }))));
+}
+
+function row(tab, checked, reason) {
+  return el("label", { className: "row", title: tab.url },
+    el("input", { type: "checkbox", checked, value: tab.n, onchange: update }),
+    el("span", { className: "num", textContent: `#${tab.n}` }),
+    el("span", {},
+      el("div", { className: "title", textContent: tab.title || tab.url }),
+      el("div", { className: "meta" },
+        place(tab.url),
+        reason ? " · " : null,
+        reason ? el("span", { className: "reason", textContent: reason }) : null)));
+}
+
+function renderPlan(view) {
+  const byNumber = new Map(state.tabs.map((t) => [t.n, t]));
+  const closing = new Set(state.close.map((c) => c.tab));
+  $("lead").textContent = state.close.length
+    ? `Claude suggests closing ${plural(state.close.length, "tab")} of ${state.tabs.length}. ` +
+      "Untick anything you want to keep, or tick more under “Keeping”."
+    : `Claude found nothing to close among ${plural(state.tabs.length, "tab")}. You can still pick tabs under “Keeping”.`;
+
+  const known = new Set(GROUPS.map(([key]) => key));
+  const groups = [...GROUPS, ["other", "Other"]];
+  for (const [key, label] of groups) {
+    const items = state.close.filter((c) => (known.has(c.category) ? c.category : "other") === key);
+    if (!items.length) continue;
+    const all = el("input", { type: "checkbox", checked: true, title: "Select all in this group" });
+    const card = el("section", { className: "card" },
+      el("label", { className: "card-head" }, all,
+        el("h2", {}, label, " ", el("span", { className: "count", textContent: items.length }))),
+      ...items.map((c) => row(byNumber.get(c.tab), true, c.reason)));
+    all.onchange = () => {
+      card.querySelectorAll(".row input").forEach((box) => { box.checked = all.checked; });
+      update();
+    };
+    view.append(card);
+  }
+
+  const kept = state.tabs.filter((t) => !closing.has(t.n));
+  if (kept.length) {
+    view.append(el("details", { className: "card" },
+      el("summary", {}, `Keeping ${kept.length} `, el("span", { className: "hint", textContent: "· tick any you also want closed" })),
+      ...kept.map((t) => row(t, false, ""))));
+  }
+
+  const by = [state.model, state.seconds ? `${Math.round(state.seconds)} s` : null].filter(Boolean).join(" · ");
+  if (by) view.append(el("p", { className: "fine", textContent: `Planned by ${by}` }));
+  update();
+}
+
+function chosen() {
+  return [...document.querySelectorAll(".row input:checked")].map((box) => Number(box.value));
+}
+
+function update() {
+  const n = chosen().length;
+  const merging = state.windows > 1;
+  document.querySelectorAll(".card").forEach((card) => {
+    const all = card.querySelector(".card-head input");
+    if (!all) return;
+    const boxes = [...card.querySelectorAll(".row input")];
+    const on = boxes.filter((b) => b.checked).length;
+    all.checked = on === boxes.length;
+    all.indeterminate = on > 0 && on < boxes.length;
+  });
+
+  const parts = [];
+  if (n) parts.push(`${plural(n, "tab")} will close`);
+  if (merging) parts.push(`${state.windows} windows become one`);
+  $("bar-summary").textContent = parts.join(" · ") || "Nothing selected";
+  $("bar-note").textContent = merging
+    ? "Tabs from the other windows reopen in the main one and reload, so finish anything you're typing first."
+    : "";
+
+  const apply = $("apply");
+  apply.disabled = !n && !merging;
+  apply.textContent = n
+    ? `Close ${plural(n, "tab")}${merging ? " and merge" : ""}`
+    : merging ? "Merge windows" : "Nothing to do";
+}
+
+async function apply() {
+  $("apply").disabled = true;
+  try {
+    state = await call("POST", "api/apply", { close: chosen() });
+  } catch {
+    $("apply").disabled = false;
+    return;
+  }
+  render();
+  setTimeout(poll, 1000);
+}
+
+async function cancel() {
+  try { state = await call("POST", "api/cancel"); } catch { state = { phase: "idle" }; }
+  render();
+}
+
+async function retry() {
+  try { state = await call("POST", "api/retry"); } catch { return; }
+  render();
+  setTimeout(poll, 1000);
+}
+
+$("apply").onclick = apply;
+$("cancel").onclick = cancel;
+poll();
+</script>
+</body>
+</html>
