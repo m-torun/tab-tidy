@@ -12,3 +12,4 @@ last-closed.json
 .DS_Store
 .vscode/
 .claude/settings.local.json
+TabTidy-*.zip

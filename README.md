@@ -30,9 +30,28 @@ hand from the final window.
 - macOS 13 or later
 - Google Chrome
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) installed and signed in, so `claude` works in a terminal
-- Xcode or the Command Line Tools, to build (`xcode-select --install`)
+- Apple Silicon for the released build; building from source works on any Mac
 
 ## Install
+
+```sh
+brew tap m-torun/tap
+brew install --cask tab-tidy
+```
+
+Tab Tidy is signed ad hoc rather than with an Apple Developer ID, so macOS
+blocks the first launch. Open it once with `open "/Applications/Tab Tidy.app"`,
+then allow it under System Settings → Privacy & Security → **Open Anyway**.
+
+Or [download the latest release](https://github.com/m-torun/tab-tidy/releases/latest)
+and drag `Tab Tidy.app` to Applications.
+
+To start it at login, right-click the menu bar icon and choose **Open at
+Login**.
+
+### Building from source
+
+Needs Xcode or the Command Line Tools (`xcode-select --install`).
 
 ```sh
 git clone https://github.com/m-torun/tab-tidy.git
@@ -41,8 +60,7 @@ cd tab-tidy
 ```
 
 This builds `Tab Tidy.app`, copies it to `~/Applications` and starts it. Set
-`INSTALL_DIR` to install somewhere else. To start it at login, right-click the
-menu bar icon and choose **Open at Login**.
+`INSTALL_DIR` to install somewhere else.
 
 The first time it runs, macOS asks whether Tab Tidy may control Google Chrome.
 Click **OK**. If you click Don't Allow, turn it on later in System Settings →
