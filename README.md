@@ -34,24 +34,8 @@ hand from the final window.
 
 ## Install
 
-```sh
-brew tap m-torun/tap
-brew install --cask tab-tidy
-```
-
-Tab Tidy is signed ad hoc rather than with an Apple Developer ID, so macOS
-blocks the first launch. Open it once with `open "/Applications/Tab Tidy.app"`,
-then allow it under System Settings → Privacy & Security → **Open Anyway**.
-
-Or [download the latest release](https://github.com/m-torun/tab-tidy/releases/latest)
-and drag `Tab Tidy.app` to Applications.
-
-To start it at login, right-click the menu bar icon and choose **Open at
-Login**.
-
-### Building from source
-
-Needs Xcode or the Command Line Tools (`xcode-select --install`).
+Build it from source. It needs Xcode or the Command Line Tools
+(`xcode-select --install`):
 
 ```sh
 git clone https://github.com/m-torun/tab-tidy.git
@@ -60,7 +44,18 @@ cd tab-tidy
 ```
 
 This builds `Tab Tidy.app`, copies it to `~/Applications` and starts it. Set
-`INSTALL_DIR` to install somewhere else.
+`INSTALL_DIR` to install somewhere else. An app built on your own Mac opens
+without any Gatekeeper prompt.
+
+The [latest release](https://github.com/m-torun/tab-tidy/releases/latest) has
+the same app prebuilt, for Apple Silicon. It is signed ad hoc rather than with
+an Apple Developer ID and is not notarized, so macOS refuses to open it, saying
+it cannot verify that the app is free of malware. If you would rather not
+build, allow it once under System Settings → Privacy & Security → **Open
+Anyway**.
+
+To start it at login, right-click the menu bar icon and choose **Open at
+Login**.
 
 The first time it runs, macOS asks whether Tab Tidy may control Google Chrome.
 Click **OK**. If you click Don't Allow, turn it on later in System Settings →
